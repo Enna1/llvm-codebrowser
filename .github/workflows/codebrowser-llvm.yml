@@ -1,0 +1,100 @@
+name: codebrowser for llvm
+
+on:
+  push:
+    branches:
+      - main  # Set a branch to deploy
+  pull_request:
+
+jobs:
+  codebrowser:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        llvm-branches: [release/4.x, release/17.x]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt install llvm-13 clang-13 libclang-13-dev lld-13
+          sudo apt install build-essential make cmake ninja-build git python3-distutils python3-pip binutils binutils-dev
+      - uses: actions/checkout@v4
+        with:
+          repository: 'KDAB/codebrowser'
+          path: codebrowser
+      - name: Build KDAB/codebrowser
+        run: |
+          pushd codebrowser
+          cmake . -DCMAKE_BUILD_TYPE=Release
+          make -j `nproc`
+          popd
+      - uses: actions/checkout@v4
+        with:
+          repository: 'Enna1/llvm-project'
+          ref: ${{ matrix.llvm-branches }}
+          path: llvm-project
+      - name: Set llvm info
+        id: set-llvm-info
+        run: |
+          pushd llvm-project
+          if [ ${{ matrix.llvm-branches }} == 'release/17.x' ]; then
+            echo "LLVM_ENABLE_PROJECTS='clang;compiler-rt'" >> $GITHUB_OUTPUT
+          else
+            echo "LLVM_ENABLE_PROJECTS=';'" >> $GITHUB_OUTPUT
+          fi
+          echo "LLVM_GIT_DESCRIBE=$(git describe --always --tags)" >> $GITHUB_OUTPUT
+          echo "LLVM_GIT_BRANCH=$(echo ${{ matrix.llvm-branches }} | sed s:/:-:g)" >> $GITHUB_OUTPUT
+          popd
+      - name: Cache llvm build
+        id: cache-llvm-build
+        uses: actions/cache@v3
+        with:
+          path: llvm-project/build
+          key: ${{ runner.os }}-llvm-build-${{ steps.set-llvm-info.outputs.LLVM_GIT_DESCRIBE }}
+      - name: Build llvm
+        if: steps.cache-llvm-build.outputs.cache-hit != 'true'
+        run: |
+          pushd llvm-project
+          mkdir build
+          pushd build
+          cmake -G "Ninja" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
+            -DLLVM_ENABLE_PROJECTS=${{ steps.set-llvm-info.outputs.LLVM_ENABLE_PROJECTS }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_USE_LINKER=gold \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            ../llvm
+          ninja
+          popd
+          popd
+      - name: Cache codebrowser generated HTML files
+        id: cache-codebrowser-generator
+        uses: actions/cache@v3
+        with:
+          path: codebrowser-html-output
+          key: ${{ runner.os }}-codebrowser-generator-${{ steps.set-llvm-info.outputs.LLVM_GIT_DESCRIBE }}
+      - name: Run codebrowser generator
+        if: steps.cache-codebrowser-generator.outputs.cache-hit != 'true'
+        run: |
+          OUTPUT_DIRECTORY=./codebrowser-html-output/llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH }}
+          VERSION=${{ steps.set-llvm-info.outputs.LLVM_GIT_DESCRIBE }}
+          DATA_DIRECTORY=$OUTPUT_DIRECTORY/../data
+          BUILD_DIRECTORY=./llvm-project/build
+          SOURCE_DIRECTORY=./llvm-project
+          ./codebrowser/generator/codebrowser_generator -b $BUILD_DIRECTORY -a -o $OUTPUT_DIRECTORY -p llvm:$SOURCE_DIRECTORY:$VERSION
+          ./codebrowser/indexgenerator/codebrowser_indexgenerator $OUTPUT_DIRECTORY
+          cp -rv ./codebrowser/data $DATA_DIRECTORY
+      - name: Tar codebrowser generated HTML files
+        run: |
+          tar czf llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH }}-codebrowser.tar.gz --directory=./codebrowser-html-output .
+      - name: Set date as release tag
+        id: set-release-tag
+        run: |
+          echo "RELEASE_TAG=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+      - name: Upload generated HTML files to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH }}-codebrowser.tar.gz
+          tag_name: ${{ steps.set-release-tag.outputs.RELEASE_TAG }}
