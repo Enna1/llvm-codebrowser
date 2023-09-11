@@ -22,7 +22,7 @@ jobs:
         with:
           repository: 'KDAB/codebrowser'
           path: codebrowser
-      - name: Build codebrowser
+      - name: Build KDAB/codebrowser
         run: |
           pushd codebrowser
           cmake . -DCMAKE_BUILD_TYPE=Release
@@ -33,18 +33,19 @@ jobs:
           repository: 'Enna1/llvm-project'
           ref: ${{ matrix.llvm-branches }}
           path: llvm-project
-      - name: Get llvm version
-        id: llvm-version
+      - name: Get llvm git info
+        id: llvm-git-info
         run: |
           pushd llvm-project
-          echo "LLVM_VERSION=$(git describe --always --tags)" >> $GITHUB_OUTPUT
+          echo "LLVM_GIT_DESCRIBE=$(git describe --always --tags)" >> $GITHUB_OUTPUT
+          echo "LLVM_GIT_BRANCH=$(echo ${{ matrix.llvm-branches }} | sed s:/:-:g)" >> $GITHUB_OUTPUT
           popd
       - name: Cache llvm build
         id: cache-llvm-build
         uses: actions/cache@v3
         with:
           path: llvm-project/build
-          key: ${{ runner.os }}-llvm-build-${{ steps.llvm-version.outputs.LLVM_VERSION }}
+          key: ${{ runner.os }}-llvm-build-${{ steps.llvm-git-info.outputs.LLVM_GIT_DESCRIBE }}
       - name: Build llvm
         if: steps.cache-llvm-build.outputs.cache-hit != 'true'
         run: |
@@ -62,24 +63,27 @@ jobs:
           ninja
           popd
           popd
+      - name: Cache codebrowser generated HTML files
+        id: cache-codebrowser-generator
+        uses: actions/cache@v3
+        with:
+          path: codebrowser-html-output
+          key: ${{ runner.os }}-codebrowser-generator-${{ steps.llvm-git-info.outputs.LLVM_GIT_DESCRIBE }}
       - name: Run codebrowser generator
+        if: steps.cache-codebrowser-generator.outputs.cache-hit != 'true'
         run: |
-          OUTPUT_DIRECTORY=$(echo ${{ matrix.llvm-branches }} | sed s:/:-:g)
-          OUTPUT_DIRECTORY=./codebrowser-html-output/llvm-$OUTPUT_DIRECTORY
-          VERSION=${{ steps.llvm-version.outputs.LLVM_VERSION }}
+          OUTPUT_DIRECTORY=./codebrowser-html-output/llvm-${{ steps.llvm-git-info.outputs.LLVM_GIT_BRANCH }}
+          VERSION=${{ steps.llvm-git-info.outputs.LLVM_GIT_DESCRIBE }}
           DATA_DIRECTORY=$OUTPUT_DIRECTORY/../data
           BUILD_DIRECTORY=./llvm-project/build
           SOURCE_DIRECTORY=./llvm-project
           ./codebrowser/generator/codebrowser_generator -b $BUILD_DIRECTORY -a -o $OUTPUT_DIRECTORY -p llvm:$SOURCE_DIRECTORY:$VERSION
           ./codebrowser/indexgenerator/codebrowser_indexgenerator $OUTPUT_DIRECTORY
           cp -rv ./codebrowser/data $DATA_DIRECTORY
-          tar czf codebrowser-html-output.tar.gz --directory=./codebrowser-html-output .
+      - name: Tar codebrowser generated HTML files
+        run: |
+          tar czf llvm-${{ steps.llvm-git-info.outputs.LLVM_GIT_BRANCH }}-codebrowser.tar.gz --directory=./codebrowser-html-output .
       - name: Upload generated HTML files to release
-        uses: svenstaro/upload-release-action@v2
+        uses: softprops/action-gh-release@v1
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./codebrowser-html-output.tar.gz
-          asset_name: llvm-${{ matrix.llvm-branches }}-codebrowser
-          tag: ${{ github.ref }}
-          overwrite: true
-          body: "The code browser HTML files for llvm-${{ matrix.llvm-branches }}-${{ steps.llvm-version.outputs.LLVM_VERSION }}"
+          files: llvm-${{ steps.llvm-git-info.outputs.LLVM_GIT_BRANCH }}-codebrowser.tar.gz
