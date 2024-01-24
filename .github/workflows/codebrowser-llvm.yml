@@ -1,17 +1,22 @@
 name: codebrowser for llvm
 
 on:
-  push:
-    branches:
-      - main  # Set a branch to deploy
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      branche_tag:
+        description: 'which llvm-project branche/tag to build'
+        required: false
+        default: 'main'
+        type: string
+      LLVM_ENABLE_PROJECTS:
+        description: 'LLVM_ENABLE_PROJECTS pass to cmake'
+        required: false
+        default: 'clang;compiler-rt'
+        type: string
 
 jobs:
   codebrowser:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        llvm-branches: [release/4.x, release/17.x]
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -25,25 +30,20 @@ jobs:
       - name: Build KDAB/codebrowser
         run: |
           pushd codebrowser
-          cmake . -DCMAKE_BUILD_TYPE=Release
+          cmake . -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/usr/lib/llvm-13/build/lib/cmake/llvm
           make -j `nproc`
           popd
       - uses: actions/checkout@v4
         with:
           repository: 'Enna1/llvm-project'
-          ref: ${{ matrix.llvm-branches }}
+          ref: ${{ inputs.branche_tag }}
           path: llvm-project
       - name: Set llvm info
         id: set-llvm-info
         run: |
           pushd llvm-project
-          if [ ${{ matrix.llvm-branches }} == 'release/17.x' ]; then
-            echo "LLVM_ENABLE_PROJECTS='clang;compiler-rt'" >> $GITHUB_OUTPUT
-          else
-            echo "LLVM_ENABLE_PROJECTS=';'" >> $GITHUB_OUTPUT
-          fi
           echo "LLVM_GIT_DESCRIBE=$(git describe --always --tags)" >> $GITHUB_OUTPUT
-          echo "LLVM_GIT_BRANCH=$(echo ${{ matrix.llvm-branches }} | sed s:/:-:g)" >> $GITHUB_OUTPUT
+          echo "LLVM_GIT_BRANCH=$(echo ${{ inputs.branche_tag }} | sed s:/:-:g)" >> $GITHUB_OUTPUT
           popd
       - name: Cache llvm build
         id: cache-llvm-build
@@ -59,7 +59,7 @@ jobs:
           pushd build
           cmake -G "Ninja" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
-            -DLLVM_ENABLE_PROJECTS=${{ steps.set-llvm-info.outputs.LLVM_ENABLE_PROJECTS }} \
+            -DLLVM_ENABLE_PROJECTS="${{ inputs.LLVM_ENABLE_PROJECTS }}" \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_USE_LINKER=gold \
             -DLLVM_INCLUDE_TESTS=OFF \
