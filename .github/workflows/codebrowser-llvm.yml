@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - name: Set date as release tag
+        id: set-release-tag
+        run: |
+          echo "RELEASE_TAG=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
       - name: Install dependencies
         run: |
           sudo apt install llvm-13 clang-13 libclang-13-dev lld-13
@@ -89,10 +93,6 @@ jobs:
       - name: Tar codebrowser generated HTML files
         run: |
           tar czf llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH }}-codebrowser.tar.gz --directory=./codebrowser-html-output .
-      - name: Set date as release tag
-        id: set-release-tag
-        run: |
-          echo "RELEASE_TAG=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
       - name: Upload generated HTML files to release
         uses: softprops/action-gh-release@v1
         with:
