@@ -48,13 +48,14 @@ jobs:
           pushd llvm-project
           echo "LLVM_GIT_DESCRIBE=$(git describe --always --tags)" >> $GITHUB_OUTPUT
           echo "LLVM_GIT_BRANCH=$(echo ${{ inputs.branche_tag }} | sed s:/:-:g)" >> $GITHUB_OUTPUT
+          echo "LLVM_GIT_BRANCH_AND_TAG=$(echo ${{ inputs.branche_tag }} | sed s:/:-:g)-$(git describe --always --tags)" >> $GITHUB_OUTPUT
           popd
       - name: Cache llvm build
         id: cache-llvm-build
         uses: actions/cache@v3
         with:
           path: llvm-project/build
-          key: ${{ runner.os }}-llvm-build-${{ steps.set-llvm-info.outputs.LLVM_GIT_DESCRIBE }}
+          key: ${{ runner.os }}-llvm-build-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}
       - name: Build llvm
         if: steps.cache-llvm-build.outputs.cache-hit != 'true'
         run: |
@@ -78,12 +79,12 @@ jobs:
         uses: actions/cache@v3
         with:
           path: codebrowser-html-output
-          key: ${{ runner.os }}-codebrowser-generator-${{ steps.set-llvm-info.outputs.LLVM_GIT_DESCRIBE }}
+          key: ${{ runner.os }}-codebrowser-generator-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}
       - name: Run codebrowser generator
         if: steps.cache-codebrowser-generator.outputs.cache-hit != 'true'
         run: |
-          OUTPUT_DIRECTORY=./codebrowser-html-output/llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH }}
-          VERSION=${{ steps.set-llvm-info.outputs.LLVM_GIT_DESCRIBE }}
+          OUTPUT_DIRECTORY=./codebrowser-html-output/llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}
+          VERSION=${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}
           DATA_DIRECTORY=$OUTPUT_DIRECTORY/../data
           BUILD_DIRECTORY=./llvm-project/build
           SOURCE_DIRECTORY=./llvm-project
@@ -92,9 +93,9 @@ jobs:
           cp -rv ./codebrowser/data $DATA_DIRECTORY
       - name: Tar codebrowser generated HTML files
         run: |
-          tar czf llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH }}-codebrowser.tar.gz --directory=./codebrowser-html-output .
+          tar czf llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}-codebrowser.tar.gz --directory=./codebrowser-html-output .
       - name: Upload generated HTML files to release
         uses: softprops/action-gh-release@v1
         with:
-          files: llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH }}-codebrowser.tar.gz
+          files: llvm-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}-codebrowser.tar.gz
           tag_name: ${{ steps.set-release-tag.outputs.RELEASE_TAG }}
