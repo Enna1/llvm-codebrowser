@@ -68,6 +68,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_USE_LINKER=gold \
             -DLLVM_INCLUDE_TESTS=ON \
+            -DLLVM_BUILD_TESTS=ON \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
             ../llvm
