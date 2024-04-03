@@ -67,7 +67,7 @@ jobs:
             -DLLVM_ENABLE_PROJECTS="${{ inputs.LLVM_ENABLE_PROJECTS }}" \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_USE_LINKER=gold \
-            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_TESTS=ON \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
             ../llvm
