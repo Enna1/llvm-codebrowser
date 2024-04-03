@@ -67,12 +67,11 @@ jobs:
             -DLLVM_ENABLE_PROJECTS="${{ inputs.LLVM_ENABLE_PROJECTS }}" \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_USE_LINKER=gold \
-            -DLLVM_INCLUDE_TESTS=ON \
-            -DLLVM_BUILD_TESTS=ON \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
             ../llvm
           ninja
+          ninja check
           popd
           popd
       - name: Cache codebrowser generated HTML files
