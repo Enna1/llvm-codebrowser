@@ -13,6 +13,11 @@ on:
         required: false
         default: 'clang;compiler-rt'
         type: string
+      LLVM_ENABLE_RUNTIMES:
+        description: 'LLVM_ENABLE_RUNTIMES pass to cmake'
+        required: false
+        default: 'libcxx;libcxxabi;libunwind'
+        type: string
 
 jobs:
   codebrowser:
@@ -65,6 +70,7 @@ jobs:
           cmake -G "Ninja" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
             -DLLVM_ENABLE_PROJECTS="${{ inputs.LLVM_ENABLE_PROJECTS }}" \
+            -DLLVM_ENABLE_RUNTIMES="${{ inputs.LLVM_ENABLE_RUNTIMES }}" \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_USE_LINKER=gold \
             -DLLVM_INCLUDE_TESTS=OFF \
