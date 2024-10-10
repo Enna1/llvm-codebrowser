@@ -11,12 +11,12 @@ on:
       LLVM_ENABLE_PROJECTS:
         description: 'LLVM_ENABLE_PROJECTS pass to cmake'
         required: false
-        default: 'clang;compiler-rt'
+        default: 'clang;lld'
         type: string
       LLVM_ENABLE_RUNTIMES:
         description: 'LLVM_ENABLE_RUNTIMES pass to cmake'
         required: false
-        default: 'libcxx;libcxxabi;libunwind'
+        default: 'compiler-rt;libcxx;libcxxabi;libunwind'
         type: string
 
 jobs:
@@ -60,7 +60,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: llvm-project/build
-          key: ${{ runner.os }}-llvm-build-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}
+          key: ${{ hashFiles('**/codebrowser-llvm.yml') }}-${{ runner.os }}-llvm-build-${{ steps.set-llvm-info.outputs.LLVM_GIT_BRANCH_AND_TAG }}
       - name: Build llvm
         if: steps.cache-llvm-build.outputs.cache-hit != 'true'
         run: |
@@ -94,7 +94,10 @@ jobs:
           DATA_DIRECTORY=$OUTPUT_DIRECTORY/../data
           BUILD_DIRECTORY=./llvm-project/build
           SOURCE_DIRECTORY=./llvm-project
-          ./codebrowser/generator/codebrowser_generator -b $BUILD_DIRECTORY -a -o $OUTPUT_DIRECTORY -p llvm:$SOURCE_DIRECTORY:$VERSION
+          ./codebrowser/generator/codebrowser_generator -b $BUILD_DIRECTORY -a -o $OUTPUT_DIRECTORY -p llvm_projects:$SOURCE_DIRECTORY:$VERSION
+          if [ -d $BUILD_DIRECTORY/runtimes/runtimes-bins ]; then
+            ./codebrowser/generator/codebrowser_generator -b $BUILD_DIRECTORY/runtimes/runtimes-bins -a -o $OUTPUT_DIRECTORY -p llvm_runtimes:$SOURCE_DIRECTORY:$VERSION
+          fi
           ./codebrowser/indexgenerator/codebrowser_indexgenerator $OUTPUT_DIRECTORY
           cp -rv ./codebrowser/data $DATA_DIRECTORY
       - name: Tar codebrowser generated HTML files
