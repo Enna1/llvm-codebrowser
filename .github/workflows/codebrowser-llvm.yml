@@ -21,7 +21,7 @@ on:
 
 jobs:
   codebrowser:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Set date as release tag
@@ -34,8 +34,9 @@ jobs:
           echo "HASH=$(echo ${{ hashFiles('.github/workflows/codebrowser-llvm.yml') }})" >> $GITHUB_OUTPUT
       - name: Install dependencies
         run: |
-          sudo apt install llvm-13 clang-13 libclang-13-dev lld-13
-          sudo apt install build-essential make cmake ninja-build git python3-distutils python3-pip binutils binutils-dev
+          sudo apt update
+          sudo apt install llvm-18 clang-18 libclang-18-dev lld-18
+          sudo apt install build-essential make cmake ninja-build git python3-setuptools python3-pip binutils binutils-dev
       - uses: actions/checkout@v4
         with:
           repository: 'KDAB/codebrowser'
@@ -43,7 +44,7 @@ jobs:
       - name: Build KDAB/codebrowser
         run: |
           pushd codebrowser
-          cmake . -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/usr/lib/llvm-13/build/lib/cmake/llvm
+          cmake . -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/usr/lib/llvm-18/build/lib/cmake/llvm
           make -j `nproc`
           popd
       - uses: actions/checkout@v4
